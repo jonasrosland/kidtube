@@ -2,6 +2,8 @@
 
 Kid-focused YouTube frontend. Curated channels, no Shorts, simple UI. Uses Invidious for catalog and playback; falls back to yt-dlp stream proxy when Invidious can't serve a video.
 
+![KidTube screenshot](screenshots/image.png)
+
 ## Requirements
 
 - Docker & Docker Compose
