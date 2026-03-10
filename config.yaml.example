@@ -1,0 +1,25 @@
+kid_name: "YourKid"
+
+# Invidious: catalog + ad-free playback. Use your instance URL.
+# Falls back to yt-dlp stream proxy if Invidious can't serve a video.
+invidious_url: "https://your-invidious-instance.example.com"
+
+# Minimum video duration in seconds — filters out Shorts
+min_duration_seconds: 60
+
+# How many videos to show per channel (playlists: all episodes fetched, this limits display)
+videos_per_channel: 120
+
+# id can be channel ID (UC...) or handle (@peppapigtales or peppapigtales)
+# playlist: single playlist — use instead of channel uploads
+# playlists: multiple playlists — show season/playlist choice (name, id, optional max_duration_seconds to exclude compilations)
+channels:
+  - name: "Example Channel"
+    id: "@example"
+  - name: "Example with Playlists"
+    playlists:
+      - name: "Season 1"
+        id: "PLxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      - name: "Season 2"
+        id: "PLyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+        max_duration_seconds: 1200

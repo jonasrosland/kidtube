@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ kid_name }}Tube – Now Playing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <header>
+    <a href="/" class="logo">🌈 {{ kid_name }}<span>Tube</span></a>
+  </header>
+
+  <a href="/" class="back-btn">⬅ Back to videos</a>
+
+  <div class="player-wrapper">
+    {% if invidious_embed_url %}
+    <iframe
+      src="{{ invidious_embed_url }}"
+      allow="autoplay; encrypted-media"
+      allowfullscreen>
+    </iframe>
+    {% elif stream_url %}
+    <video controls autoplay playsinline class="video-player">
+      <source src="{{ stream_url }}">
+      Your browser does not support the video tag.
+    </video>
+    {% else %}
+    <div class="player-error">
+      <p>This video couldn't be loaded. Try again later or pick another video.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</body>
+</html>

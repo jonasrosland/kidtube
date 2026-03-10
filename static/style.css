@@ -1,0 +1,257 @@
+:root {
+  --pink: #ff6b9d;
+  --purple: #c44dff;
+  --blue: #4dc9f6;
+  --yellow: #ffe347;
+  --green: #4dff88;
+  --bg: #1a1333;
+  --card-bg: #2a1f4e;
+  --text: #fff;
+  --radius: 20px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ── Header ─────────────────────────────────── */
+header {
+  background: linear-gradient(135deg, var(--purple), var(--pink));
+  padding: 1.2rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, .3);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+header .logo {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  text-decoration: none;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+header .logo span {
+  background: var(--yellow);
+  color: var(--bg);
+  border-radius: 10px;
+  padding: 0.1em 0.4em;
+  font-size: 0.8em;
+}
+
+/* ── Channel Pills ──────────────────────────── */
+.channel-pills {
+  display: flex;
+  gap: 0.6rem;
+  padding: 1.2rem 2rem 0;
+  flex-wrap: wrap;
+}
+
+.pill {
+  background: var(--card-bg);
+  border: 2px solid var(--purple);
+  border-radius: 50px;
+  padding: 0.5rem 1.4rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.pill:hover, .pill.active {
+  background: var(--purple);
+  transform: scale(1.05);
+}
+
+a.pill {
+  text-decoration: none;
+}
+
+/* ── Welcome ────────────────────────────────── */
+.welcome {
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.welcome h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+  color: var(--yellow);
+  background: linear-gradient(135deg, var(--yellow), var(--pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.welcome-hint {
+  font-size: 1.2rem;
+  color: #9a8cc2;
+}
+
+.welcome h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1.2rem;
+  color: var(--text);
+}
+
+.season-pills {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ── Video Grid ─────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.8rem;
+  padding: 1.8rem 2rem 3rem;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+}
+
+.card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 12px 32px rgba(196, 77, 255, .35);
+}
+
+.card img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+}
+
+.card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  font-size: 0.8rem;
+  color: #9a8cc2;
+}
+
+.card-duration {
+  font-weight: 700;
+}
+
+.card-body {
+  padding: 1rem 1.2rem 1.2rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-channel {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--blue);
+}
+
+
+/* ── Watch Page ─────────────────────────────── */
+.player-wrapper {
+  max-width: 1100px;
+  margin: 2rem auto;
+  padding: 0 2rem;
+}
+
+.player-wrapper .player-error {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.player-wrapper .player-error p {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text);
+  opacity: 0.9;
+}
+
+.player-wrapper iframe,
+.player-wrapper video.video-player {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border: none;
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, .5);
+  background: #000;
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1.5rem 2rem;
+  padding: 0.7rem 1.6rem;
+  border-radius: 50px;
+  background: linear-gradient(135deg, var(--purple), var(--pink));
+  color: var(--text);
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-decoration: none;
+  transition: transform 0.2s;
+}
+
+.back-btn:hover {
+  transform: scale(1.06);
+}
+
+.season-back {
+  margin-bottom: 0.5rem;
+}
+
+/* ── Responsive ─────────────────────────────── */
+@media (max-width: 600px) {
+  header { padding: 1rem; }
+  header .logo { font-size: 1.5rem; }
+  .welcome { padding: 2rem 1rem; }
+  .welcome h1 { font-size: 1.6rem; }
+  .grid { grid-template-columns: 1fr; padding: 1rem; gap: 1.2rem; }
+  .channel-pills { padding: 1rem 1rem 0; }
+  .player-wrapper { padding: 0 1rem; }
+  .back-btn { margin: 1rem; }
+}

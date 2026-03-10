@@ -1,0 +1,10 @@
+# Access at http://localhost:8080 (or your host's IP for remote devices)
+# Caddy can be placed in front for TLS/HTTPS
+services:
+  kidtube:
+    build: .
+    ports:
+      - "8080:8000"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
