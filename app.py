@@ -90,8 +90,11 @@ def _video_to_card(v: dict, channel_name: str, base_url: str) -> dict:
     """Convert Invidious video object to our card format."""
     pub = v.get("published")
     published_display = v.get("publishedText", "") or (str(pub)[:10] if pub else "")
+    video_id = v.get("videoId") or (
+        v.get("playlistId") if v.get("type") == "playlist" else ""
+    )
     return {
-        "id": v.get("videoId", ""),
+        "id": video_id,
         "title": v.get("title", ""),
         "thumbnail": _pick_thumbnail(v.get("videoThumbnails", []), base_url),
         "channel": channel_name,
@@ -104,6 +107,25 @@ def _video_to_card(v: dict, channel_name: str, base_url: str) -> dict:
 def _is_channel_id(identifier: str) -> bool:
     """True if this looks like a YouTube channel ID (UC...)."""
     return identifier.startswith("UC") and len(identifier) == 24
+
+
+def _uploads_playlist_id(channel_id: str) -> str:
+    """Channel uploads playlist ID (UU + same suffix as UC channel id)."""
+    if _is_channel_id(channel_id):
+        return "UU" + channel_id[2:]
+    return channel_id
+
+
+def _channel_videos_are_mislabeled(items: list[dict]) -> bool:
+    """Invidious sometimes returns uploads as type playlist with video IDs in playlistId."""
+    if not items:
+        return False
+    sample = items[0]
+    return (
+        sample.get("type") == "playlist"
+        and not sample.get("videoId")
+        and bool(sample.get("playlistId"))
+    )
 
 
 async def _resolve_channel_id(client: httpx.AsyncClient, base_url: str, identifier: str) -> str | None:
@@ -189,6 +211,15 @@ async def _fetch_channel_videos_invidious(
             ch_videos = data.get("videos", [])
             if not ch_videos:
                 break
+            if _channel_videos_are_mislabeled(ch_videos):
+                return await _fetch_playlist_invidious(
+                    client,
+                    base_url,
+                    channel_name,
+                    _uploads_playlist_id(channel_id),
+                    count,
+                    min_duration,
+                )
             for v in ch_videos:
                 if len(videos) >= count:
                     break
