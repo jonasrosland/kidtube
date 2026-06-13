@@ -18,6 +18,9 @@
     {% for ch in channels %}
     <a class="pill{% if selected_channel == ch.name %} active{% endif %}" href="/?channel={{ ch.name | urlencode }}">{{ ch.name }}</a>
     {% endfor %}
+    {% if live_cams_channel_name %}
+    <a class="pill pill-live{% if selected_channel == live_cams_channel_name %} active{% endif %}" href="/?channel={{ live_cams_channel_name | urlencode }}">{{ live_cams_channel_name }}</a>
+    {% endif %}
   </nav>
 
   {% if not selected_channel %}
@@ -25,6 +28,44 @@
     <h1>Welcome {{ kid_name }}, what would you like to watch today?</h1>
     <p class="welcome-hint">Pick a channel above to get started!</p>
   </section>
+  {% elif is_live_cams %}
+  <main class="grid cams-grid" id="grid">
+    {% for cam in cams %}
+    {% if cam.id and not cam.offline %}
+    <a class="card cam-card" href="/watch/{{ cam.id }}?channel={{ live_cams_channel_name | urlencode }}">
+      <div class="cam-thumb-wrap">
+        {% if cam.thumbnail %}
+        <img src="{{ cam.thumbnail }}" alt="{{ cam.name }}" loading="lazy">
+        {% else %}
+        <div class="cam-thumb-placeholder">{{ cam.emoji }}</div>
+        {% endif %}
+        {% if cam.live %}
+        <span class="live-badge">LIVE</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="card-title">{{ cam.emoji }} {{ cam.name }}</div>
+        <div class="card-channel">{{ cam.title }}</div>
+      </div>
+    </a>
+    {% else %}
+    <div class="card cam-card cam-offline">
+      <div class="cam-thumb-wrap">
+        {% if cam.thumbnail %}
+        <img src="{{ cam.thumbnail }}" alt="{{ cam.name }}" loading="lazy">
+        {% else %}
+        <div class="cam-thumb-placeholder">{{ cam.emoji }}</div>
+        {% endif %}
+        <span class="offline-badge">Resting</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">{{ cam.emoji }} {{ cam.name }}</div>
+        <div class="card-channel cam-offline-msg">This cam is taking a nap — try another!</div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </main>
   {% elif selected_playlists and not selected_playlist %}
   <section class="welcome">
     <h2>Choose a season</h2>
@@ -40,7 +81,7 @@
   {% endif %}
   <main class="grid" id="grid">
     {% for v in videos %}
-    <a class="card" href="/watch/{{ v.id }}" data-channel="{{ v.channel }}">
+    <a class="card" href="/watch/{{ v.id }}?channel={{ selected_channel | urlencode }}" data-channel="{{ v.channel }}">
       <img src="{{ v.thumbnail }}" alt="{{ v.title }}" loading="lazy">
       <div class="card-body">
         <div class="card-title">{{ v.title }}</div>

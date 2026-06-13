@@ -14,10 +14,12 @@
     <a href="/" class="logo">🌈 {{ kid_name }}<span>Tube</span></a>
   </header>
 
-  <a href="/" class="back-btn">⬅ Back to videos</a>
+  <a href="{{ back_href }}" class="back-btn">{{ back_label }}</a>
 
   <div class="player-wrapper">
-    {% if invidious_embed_url %}
+    {% if hls_url %}
+    <video id="player" controls autoplay playsinline class="video-player"></video>
+    {% elif invidious_embed_url %}
     <iframe
       src="{{ invidious_embed_url }}"
       allow="autoplay; encrypted-media"
@@ -34,6 +36,33 @@
     </div>
     {% endif %}
   </div>
+
+  {% if hls_url %}
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7"></script>
+  <script>
+    (function () {
+      const video = document.getElementById("player");
+      const src = {{ hls_url | tojson }};
+      if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = src;
+        return;
+      }
+      if (window.Hls && Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(src);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            hls.loadSource(src);
+            hls.startLoad();
+          }
+        });
+        return;
+      }
+      video.outerHTML = '<div class="player-error"><p>Live stream playback is not supported in this browser.</p></div>';
+    })();
+  </script>
+  {% endif %}
 
 </body>
 </html>

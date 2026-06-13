@@ -23,3 +23,19 @@ channels:
       - name: "Season 2"
         id: "PLyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
         max_duration_seconds: 1200
+
+# Live animal cams — appear as a channel pill on the home page.
+# live_cams_channel_name: pill label (default "Live Cams")
+# Use video_id for 24/7 streams; channel_id for seasonal cams.
+# video_id accepts a bare ID (x10vL6_47Dw) or a full YouTube URL.
+live_cams_channel_name: "Live Cams"
+live_cams:
+  - name: "Decorah Eagles"
+    emoji: "🦅"
+    video_id: "PLACEHOLDER_VIDEO_ID"
+  - name: "Smithsonian Panda Cam"
+    emoji: "🐼"
+    video_id: "PLACEHOLDER_VIDEO_ID"
+  - name: "Monterey Bay Aquarium"
+    emoji: "🦭"
+    channel_id: "UCPLACEHOLDER_CHANNEL_ID"
