@@ -192,6 +192,57 @@ def _format_duration(seconds: float) -> str:
     return f"{s // 60}:{s % 60:02d}"
 
 
+def _format_published_display(pub: int, published_text: str = "") -> str:
+    """Format a human-readable publish age, ignoring bogus Invidious listing text."""
+    if published_text and "0 second" not in published_text.lower():
+        return published_text
+    if not pub:
+        return ""
+    age = max(0, int(time.time()) - pub)
+    if age < 60:
+        return ""
+    units = (
+        (31536000, "year"),
+        (2592000, "month"),
+        (604800, "week"),
+        (86400, "day"),
+        (3600, "hour"),
+        (60, "minute"),
+    )
+    for seconds, name in units:
+        if age >= seconds:
+            count = age // seconds
+            suffix = "s" if count != 1 else ""
+            return f"{count} {name}{suffix} ago"
+    return ""
+
+
+def _publish_date_suspicious(pub: int, published_text: str) -> bool:
+    """Channel listings sometimes stamp every video with the current time."""
+    if published_text and "0 second" in published_text.lower():
+        return True
+    if not pub:
+        return False
+    return abs(time.time() - pub) < 120
+
+
+async def _enrich_suspicious_publish_dates(
+    client: httpx.AsyncClient,
+    base_url: str,
+    videos: list[dict],
+) -> None:
+    """Fix bogus publish dates from channel listings via the video detail API."""
+    for card in videos:
+        if not _publish_date_suspicious(card.get("published_ts", 0), card.get("published", "")):
+            continue
+        info = await _fetch_video_info(client, base_url, card["id"])
+        if not info:
+            continue
+        pub = info.get("published") or 0
+        card["published_ts"] = pub
+        card["published"] = _format_published_display(pub, info.get("publishedText", ""))
+
+
 def _pick_thumbnail(thumbnails: list[dict], base_url: str) -> str:
     """Pick best thumbnail and make absolute URL."""
     for q in ("high", "medium", "sddefault", "maxresdefault", "default"):
@@ -207,7 +258,7 @@ def _pick_thumbnail(thumbnails: list[dict], base_url: str) -> str:
 def _video_to_card(v: dict, channel_name: str, base_url: str) -> dict:
     """Convert Invidious video object to our card format."""
     pub = v.get("published")
-    published_display = v.get("publishedText", "") or (str(pub)[:10] if pub else "")
+    published_display = _format_published_display(pub or 0, v.get("publishedText", ""))
     video_id = v.get("videoId") or (
         v.get("playlistId") if v.get("type") == "playlist" else ""
     )
@@ -456,11 +507,11 @@ async def fetch_channel_videos(
     playlist_id: str | None = None,
 ) -> list[dict]:
     """Fetch videos via Invidious. Uses playlist(s) if specified, else channel uploads."""
-    if "playlists" in channel and playlist_id:
-        pl = next((p for p in channel["playlists"] if p["id"] == playlist_id), None)
-        if pl:
-            async with httpx.AsyncClient(timeout=INVIDIOUS_TIMEOUT) as client:
-                return await _fetch_playlist_invidious(
+    async with httpx.AsyncClient(timeout=INVIDIOUS_TIMEOUT) as client:
+        if "playlists" in channel and playlist_id:
+            pl = next((p for p in channel["playlists"] if p["id"] == playlist_id), None)
+            if pl:
+                videos = await _fetch_playlist_invidious(
                     client,
                     invidious_url,
                     channel["name"],
@@ -469,9 +520,10 @@ async def fetch_channel_videos(
                     min_duration,
                     max_duration=pl.get("max_duration_seconds"),
                 )
-    if "playlist" in channel:
-        async with httpx.AsyncClient(timeout=INVIDIOUS_TIMEOUT) as client:
-            return await _fetch_playlist_invidious(
+                await _enrich_suspicious_publish_dates(client, invidious_url, videos)
+                return videos
+        if "playlist" in channel:
+            videos = await _fetch_playlist_invidious(
                 client,
                 invidious_url,
                 channel["name"],
@@ -479,12 +531,13 @@ async def fetch_channel_videos(
                 count,
                 min_duration,
             )
+            await _enrich_suspicious_publish_dates(client, invidious_url, videos)
+            return videos
 
-    async with httpx.AsyncClient(timeout=INVIDIOUS_TIMEOUT) as client:
         channel_id = await _resolve_channel_id(client, invidious_url, channel["id"])
         if not channel_id:
             return []
-        return await _fetch_channel_videos_invidious(
+        videos = await _fetch_channel_videos_invidious(
             client,
             invidious_url,
             channel["name"],
@@ -492,6 +545,8 @@ async def fetch_channel_videos(
             count,
             min_duration,
         )
+        await _enrich_suspicious_publish_dates(client, invidious_url, videos)
+        return videos
 
 
 @app.get("/", response_class=HTMLResponse)
