@@ -8,7 +8,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
+<body
+  data-video-id="{{ video_id }}"
+  data-is-live="{{ 'true' if is_live else 'false' }}"
+  data-hls-url="{{ hls_url or '' }}">
 
   <header>
     <a href="/" class="logo">🌈 {{ kid_name }}<span>Tube</span></a>
@@ -19,17 +22,18 @@
   <div class="player-wrapper">
     {% if hls_url %}
     <video id="player" controls autoplay playsinline class="video-player"></video>
+    {% elif vod_url %}
+    <video id="player" controls playsinline preload="auto" class="video-player">
+      <source src="{{ vod_url }}" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
     {% elif invidious_embed_url %}
     <iframe
+      id="player-embed"
       src="{{ invidious_embed_url }}"
       allow="autoplay; encrypted-media"
       allowfullscreen>
     </iframe>
-    {% elif stream_url %}
-    <video controls autoplay playsinline class="video-player">
-      <source src="{{ stream_url }}">
-      Your browser does not support the video tag.
-    </video>
     {% else %}
     <div class="player-error">
       <p>This video couldn't be loaded. Try again later or pick another video.</p>
@@ -39,30 +43,8 @@
 
   {% if hls_url %}
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7"></script>
-  <script>
-    (function () {
-      const video = document.getElementById("player");
-      const src = {{ hls_url | tojson }};
-      if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        video.src = src;
-        return;
-      }
-      if (window.Hls && Hls.isSupported()) {
-        const hls = new Hls();
-        hls.loadSource(src);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.ERROR, (_, data) => {
-          if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            hls.loadSource(src);
-            hls.startLoad();
-          }
-        });
-        return;
-      }
-      video.outerHTML = '<div class="player-error"><p>Live stream playback is not supported in this browser.</p></div>';
-    })();
-  </script>
   {% endif %}
+  <script src="/static/watch.js"></script>
 
 </body>
 </html>

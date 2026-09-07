@@ -14,6 +14,8 @@ CONFIG_PATH = Path(__file__).parent / "config.yaml"
 
 INVIDIOUS_TIMEOUT = 60.0  # Large channels can be slow
 _ytdlp_hls_cache: dict[str, tuple[str, float]] = {}
+_vod_upstream_cache: dict[str, tuple[str, float]] = {}
+VOD_UPSTREAM_TTL = 3600.0
 
 
 def load_config() -> dict:
@@ -122,28 +124,98 @@ def _invidious_embeddable(video_info: dict) -> bool:
     return bool(video_info.get("formatStreams") or video_info.get("adaptiveFormats"))
 
 
-@app.get("/stream-proxy/{video_id}")
-async def stream_proxy(video_id: str, request: Request):
-    """Proxy video stream via yt-dlp (fallback when Invidious unavailable)."""
-    url = await _get_ytdlp_stream_url(video_id)
-    if not url:
-        from fastapi.responses import JSONResponse
-        return JSONResponse({"error": "Could not extract stream"}, status_code=502)
+def _pick_invidious_stream_url(base_url: str, video_info: dict, video_id: str) -> str | None:
+    """Best progressive stream URL for proxied <video> playback."""
+    base = base_url.rstrip("/")
+    for stream in video_info.get("formatStreams") or []:
+        mime = stream.get("type", "")
+        if "mp4" in mime or "webm" in mime:
+            url = stream.get("url") or ""
+            if url.startswith("/"):
+                return base + url
+            if url.startswith("http"):
+                return url
+    if video_info.get("formatStreams"):
+        stream = video_info["formatStreams"][0]
+        url = stream.get("url") or ""
+        if url.startswith("/"):
+            return base + url
+        if url.startswith("http"):
+            return url
+    if video_info.get("adaptiveFormats"):
+        return None
+    return f"{base}/latest_version?id={video_id}&local=true"
+
+
+async def _get_vod_upstream_url(video_id: str, invidious_url: str | None) -> str | None:
+    """Resolve a direct upstream URL for a VOD, with short-lived cache."""
+    now = time.monotonic()
+    cached = _vod_upstream_cache.get(video_id)
+    if cached and cached[1] > now:
+        return cached[0]
+
+    upstream: str | None = None
+    if invidious_url:
+        async with httpx.AsyncClient(timeout=10) as client:
+            info = await _fetch_video_info(client, invidious_url, video_id)
+            if info and _invidious_embeddable(info):
+                upstream = _pick_invidious_stream_url(invidious_url, info, video_id)
+
+    if not upstream:
+        upstream = await _get_ytdlp_stream_url(video_id)
+
+    if upstream:
+        _vod_upstream_cache[video_id] = (upstream, now + VOD_UPSTREAM_TTL)
+    return upstream
+
+
+async def _proxy_stream(request: Request, upstream: str) -> Response | StreamingResponse:
+    """Proxy a remote video stream, forwarding Range requests for seeking."""
     range_header = request.headers.get("range")
     req_headers = {"Range": range_header} if range_header else {}
 
-    async def stream_gen():
-        async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
-            async with client.stream("GET", url, headers=req_headers) as r:
-                r.raise_for_status()
-                async for chunk in r.aiter_bytes():
-                    yield chunk
+    async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
+        r = await client.get(upstream, headers=req_headers)
+        if r.status_code >= 400:
+            return JSONResponse({"error": "Upstream stream unavailable"}, status_code=502)
 
-    return StreamingResponse(
-        stream_gen(),
-        media_type="video/mp4",
-        headers={"Accept-Ranges": "bytes"},
-    )
+        passthrough = {
+            key: value
+            for key, value in r.headers.items()
+            if key.lower() in {"content-type", "content-length", "content-range", "accept-ranges"}
+        }
+        if "accept-ranges" not in {k.lower() for k in passthrough}:
+            passthrough["Accept-Ranges"] = "bytes"
+
+        return Response(
+            content=r.content,
+            status_code=r.status_code,
+            headers=passthrough,
+            media_type=passthrough.get("content-type", "video/mp4"),
+        )
+
+
+@app.get("/video/{video_id}")
+async def video_proxy(video_id: str, request: Request):
+    """Same-origin VOD proxy so the browser can seek and resume reliably."""
+    video_id = _normalize_video_id(video_id) or video_id
+    cfg = load_config()
+    invidious_url = cfg.get("invidious_url", "").rstrip("/") or None
+    upstream = await _get_vod_upstream_url(video_id, invidious_url)
+    if not upstream:
+        return JSONResponse({"error": "Could not extract stream"}, status_code=502)
+    if "m3u8" in upstream:
+        return JSONResponse({"error": "Use live player for HLS streams"}, status_code=400)
+    return await _proxy_stream(request, upstream)
+
+
+@app.get("/stream-proxy/{video_id}")
+async def stream_proxy(video_id: str, request: Request):
+    """Proxy video stream via yt-dlp (fallback when Invidious unavailable)."""
+    upstream = await _get_ytdlp_stream_url(video_id)
+    if not upstream:
+        return JSONResponse({"error": "Could not extract stream"}, status_code=502)
+    return await _proxy_stream(request, upstream)
 
 
 @app.get("/live-hls/{video_id}")
@@ -624,8 +696,8 @@ async def watch(request: Request, video_id: str, channel: str | None = None):
     cfg = load_config()
     invidious_url: str | None = cfg.get("invidious_url", "").rstrip("/") or None
     hls_url: str | None = None
+    vod_url: str | None = None
     invidious_embed_url: str | None = None
-    stream_url: str | None = None
 
     video_info: dict | None = None
     if invidious_url:
@@ -633,19 +705,24 @@ async def watch(request: Request, video_id: str, channel: str | None = None):
             video_info = await _fetch_video_info(client, invidious_url, video_id)
 
     is_live = bool(video_info and video_info.get("liveNow")) or _is_configured_live_cam(cfg, video_id)
+    base = str(request.base_url).rstrip("/")
+    vod_url: str | None = None
     if is_live:
-        hls_url = str(request.base_url).rstrip("/") + f"/live-hls/{video_id}"
+        hls_url = base + f"/live-hls/{video_id}"
     elif invidious_url and video_info and _invidious_embeddable(video_info):
-        invidious_embed_url = (
-            f"{invidious_url}/embed/{video_id}?autoplay=1&related_videos=false&comments=false"
-        )
+        if _pick_invidious_stream_url(invidious_url, video_info, video_id):
+            vod_url = base + f"/video/{video_id}"
+        else:
+            invidious_embed_url = (
+                f"{invidious_url}/embed/{video_id}?autoplay=1&related_videos=false&comments=false"
+            )
     else:
         url = await _get_ytdlp_stream_url(video_id)
         if url:
             if "m3u8" in url:
-                hls_url = url
+                hls_url = base + f"/live-hls/{video_id}"
             else:
-                stream_url = str(request.base_url).rstrip("/") + f"/stream-proxy/{video_id}"
+                vod_url = base + f"/video/{video_id}"
 
     from urllib.parse import quote
 
@@ -659,9 +736,10 @@ async def watch(request: Request, video_id: str, channel: str | None = None):
     return templates.TemplateResponse("watch.html", {
         "request": request,
         "video_id": video_id,
+        "is_live": is_live,
         "hls_url": hls_url,
+        "vod_url": vod_url,
         "invidious_embed_url": invidious_embed_url,
-        "stream_url": stream_url,
         "channels": cfg.get("channels", []),
         "kid_name": cfg.get("kid_name", "Kid"),
         "back_href": back_href,
