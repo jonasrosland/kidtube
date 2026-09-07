@@ -21,11 +21,16 @@
 
   <div class="player-wrapper">
     {% if hls_url %}
-    <video id="player" controls autoplay playsinline class="video-player"></video>
+    <video id="player" controls autoplay playsinline webkit-playsinline class="video-player"></video>
     {% elif vod_url %}
-    <video id="player" controls playsinline preload="auto" class="video-player">
-      <source src="{{ vod_url }}" type="video/mp4">
-      Your browser does not support the video tag.
+    <video
+      id="player"
+      controls
+      playsinline
+      webkit-playsinline
+      preload="none"
+      class="video-player"
+      data-src="{{ vod_url }}">
     </video>
     {% elif invidious_embed_url %}
     <iframe
