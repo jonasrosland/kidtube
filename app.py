@@ -1,4 +1,5 @@
 import asyncio
+import random
 import time
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urljoin, urlparse
@@ -6,7 +7,7 @@ from urllib.parse import parse_qs, quote, urljoin, urlparse
 import httpx
 import yaml
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -677,6 +678,46 @@ async def home(request: Request, channel: str | None = None, playlist: str | Non
         "is_live_cams": is_live_cams,
         "kid_name": kid_name,
     })
+
+
+@app.get("/random")
+async def random_episode(channel: str, playlist: str | None = None):
+    """Pick a random video from a channel (or season) and start playback."""
+    cfg = load_config()
+    invidious_url = cfg.get("invidious_url", "").rstrip("/")
+    if not invidious_url:
+        return RedirectResponse("/", status_code=302)
+
+    cams_channel = live_cams_channel_name(cfg)
+    if cams_channel and channel == cams_channel:
+        return RedirectResponse(f"/?channel={quote(channel)}", status_code=302)
+
+    ch = next((c for c in cfg.get("channels", []) if c["name"] == channel), None)
+    if not ch:
+        return RedirectResponse("/", status_code=302)
+
+    count = cfg.get("videos_per_channel", 12)
+    min_dur = cfg.get("min_duration_seconds", 60)
+    playlist_id = playlist
+
+    if "playlists" in ch and not playlist_id:
+        playlist_id = random.choice(ch["playlists"])["id"]
+
+    videos = await fetch_channel_videos(ch, invidious_url, count, min_dur, playlist_id=playlist_id)
+    if not videos and "playlists" in ch and playlist_id:
+        videos = await fetch_channel_videos(ch, invidious_url, count, min_dur)
+
+    if not videos:
+        back = f"/?channel={quote(channel)}"
+        if playlist:
+            back += f"&playlist={quote(playlist)}"
+        return RedirectResponse(back, status_code=302)
+
+    pick = random.choice(videos)
+    return RedirectResponse(
+        f"/watch/{pick['id']}?channel={quote(channel)}",
+        status_code=302,
+    )
 
 
 @app.get("/cams")

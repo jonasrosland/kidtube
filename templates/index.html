@@ -69,6 +69,7 @@
   {% elif selected_playlists and not selected_playlist %}
   <section class="welcome">
     <h2>Choose a season</h2>
+    <a href="/random?channel={{ selected_channel | urlencode }}" class="random-btn">🎲 Random episode</a>
     <nav class="season-pills">
       {% for pl in selected_playlists %}
       <a class="pill" href="/?channel={{ selected_channel | urlencode }}&playlist={{ pl.id | urlencode }}">{{ pl.name }}</a>
@@ -78,6 +79,9 @@
   {% else %}
   {% if selected_playlist and selected_playlists %}
   <a href="/?channel={{ selected_channel | urlencode }}" class="back-btn season-back">← Change season</a>
+  {% endif %}
+  {% if videos %}
+  <a href="/random?channel={{ selected_channel | urlencode }}{% if selected_playlist %}&amp;playlist={{ selected_playlist | urlencode }}{% endif %}" class="random-btn">🎲 Random episode</a>
   {% endif %}
   <main class="grid" id="grid">
     {% for v in videos %}
