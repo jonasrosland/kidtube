@@ -13,6 +13,8 @@
     return;
   }
 
+  // Resume is turned off: videos always start from the beginning.
+  const RESUME_ENABLED = false;
   const STORAGE_KEY = "kidtube:watch:" + videoId;
   const MIN_RESUME = 5;
   const END_BUFFER = 30;
@@ -20,6 +22,7 @@
   const RESUME_BACKUP_SECONDS = 5;
 
   function loadProgress() {
+    if (!RESUME_ENABLED) return null;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
@@ -31,6 +34,7 @@
   }
 
   function saveProgress(time, duration) {
+    if (!RESUME_ENABLED) return;
     if (time < MIN_RESUME) return;
     if (Number.isFinite(duration) && duration > 0 && time >= duration - END_BUFFER) {
       clearProgress();
